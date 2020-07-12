@@ -112,4 +112,9 @@ tick()
 name= tk.Label(root,text='@RASHANDEEP SINGH', font=("poppins", 7), bg='white')
 name.pack()
 
+# CREATE A NEW THREAD
+th1 = threading.Thread(target=notify_me)
+th1.setDaemon(True)
+th1.start()
+
 root.mainloop()
