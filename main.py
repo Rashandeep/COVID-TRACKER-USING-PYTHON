@@ -18,8 +18,24 @@ import threading
 # IMPORT FOR DISPLAYING IMAGE ON TKINTER
 from PIL import ImageTk,Image
 
+#IMPORT FOR CONNECTION DATABASE
+import sqlite3
+
+# MAKING THE CONNECTION TO DATABASE
+conn=sqlite3.connect('covid.sqlite')
+cur=conn.cursor()
+try:
+    cur.execute('CREATE TABLE tracker(date TEXT, active INTEGER, cured INTEGER, deaths INTEGER, migrated INTEGER)')
+except:
+    cur.execute('SELECT * FROM tracker')
+
 
 # PYTHON PROGRAM
+
+# GLOBAL VARIABLES
+stuff=list()
+date = dt.datetime.now()
+format_date = f"{date:%a, %b %d %Y}"
 
 # FUNCTION TO GET URL
 def get_html_data(url):
@@ -32,6 +48,43 @@ def get_corona_detail_of_india():
     html_data = get_html_data(url)
 
     bs = bs4.BeautifulSoup(html_data.text, 'html.parser') # making of object
+    info_div = bs.find("div",class_="site-stats-count").find_all("li")
+    all_details = ""
+    for block in info_div:
+        try:
+            count = block.find("strong").get_text()
+            stuff.append(count)
+            text = block.find("span").get_text()
+            all_details = all_details + text +" : " + count + "\n"
+        except:
+            break
+    active=stuff[0]
+    cured=stuff[1]
+    deaths=stuff[2]
+    migrated=stuff[3]
+    # print(format_date, active, cured, deaths, migrated)
+
+    cur.execute('SELECT active FROM tracker WHERE cured= ?',(cured, ) )
+    row=cur.fetchone()
+    if row is None:
+        cur.execute('''INSERT OR IGNORE INTO tracker (date, active,cured,deaths,migrated)
+            VALUES ( ?, ?, ?, ?, ? )''', ( format_date, active, cured, deaths, migrated, ) )
+        conn.commit()
+    else:
+        yo=row[0]
+        if(yo!=int(active)):
+            cur.execute('''INSERT OR IGNORE INTO tracker (date, active,cured,deaths,migrated)
+                VALUES ( ?, ?, ?, ?, ? )''', ( format_date, active, cured, deaths, migrated, ) )
+            conn.commit()
+
+    return all_details
+
+# FUNCTION TO PRODUCE NOTIFICATION
+def get_corona_detail_of_india_noti():
+    url= "https://www.mohfw.gov.in/"
+    html_data = get_html_data(url)
+
+    bs = bs4.BeautifulSoup(html_data.text, 'html.parser') # MAKING OF OBJECT
     info_div = bs.find("div",class_="site-stats-count").find_all("li")
     all_details = ""
     for block in info_div:
@@ -53,9 +106,9 @@ def refresh():
 def notify_me():
     while True:
         plyer.notification.notify(
-            title="COVID 19 cases of INDIA",
-            message=get_corona_detail_of_india(),
-            timeout=10, # IT WILL SHOW UP FOR 10 SECONDS
+            title="COVID-19 CASES OF INDIA",
+            message=get_corona_detail_of_india_noti(),
+            timeout=10 # IT WILL SHOW UP FOR 10 SECONDS
         )
         time.sleep(1800) # IT WILL DISPLAY AFTER EVERY 1800 SECOND
 
@@ -106,10 +159,15 @@ def tick():
     # could use >200 ms, but display gets jerky
     clock.after(200, tick)
 
-
 tick()
 
+# DISPLAYING NAME BADGE
 name= tk.Label(root,text='@RASHANDEEP SINGH', font=("poppins", 7), bg='white')
 name.pack()
+
+# CREATE A NEW THREAD
+th1 = threading.Thread(target=notify_me)
+th1.setDaemon(True)
+th1.start()
 
 root.mainloop()
